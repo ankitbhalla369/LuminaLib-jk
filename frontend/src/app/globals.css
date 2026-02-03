@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-surface-muted text-slate-800 antialiased;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-surface-border bg-surface px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:opacity-50;
+  }
+  .input-field {
+    @apply w-full rounded-lg border border-surface-border bg-surface px-3 py-2.5 text-slate-800 placeholder-slate-400 transition focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500;
+  }
+  .card {
+    @apply rounded-xl border border-surface-border bg-surface p-5 shadow-card;
+  }
+  .card-hover {
+    @apply card transition hover:shadow-cardHover;
+  }
+  .page-title {
+    @apply text-2xl font-semibold text-slate-900 sm:text-3xl;
+  }
+  .label {
+    @apply block text-sm font-medium text-slate-700 mb-1.5;
+  }
+  .text-muted {
+    @apply text-slate-500;
+  }
+  .text-error {
+    @apply text-sm text-red-600;
+  }
+  .text-success {
+    @apply text-sm text-emerald-600;
+  }
+}

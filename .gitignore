@@ -1,0 +1,9 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+venv/
+backend/uploads/
+frontend/.next/
+frontend/node_modules/
+backend/alembic/versions/*.pyc

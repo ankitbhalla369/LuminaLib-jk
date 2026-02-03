@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: luminalib
+      POSTGRES_PASSWORD: luminalib
+      POSTGRES_DB: luminalib
+    ports:
+      - "5433:5432"   # host 5433 to avoid conflict with local PostgreSQL on 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U luminalib -d luminalib"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    image: ollama/ollama
+    volumes:
+      - ollama_data:/var/lib/ollama
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DB_URL: postgresql+asyncpg://luminalib:luminalib@db:5432/luminalib
+      SECRET_KEY: dev-secret-change-in-prod
+      STORAGE_BACKEND: local
+      LOCAL_STORAGE_PATH: /app/uploads
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - ./backend/uploads:/app/uploads
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - api
+
+volumes:
+  pgdata: {}
+  ollama_data: {}
