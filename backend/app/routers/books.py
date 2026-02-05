@@ -71,15 +71,15 @@ def _run_summary_task(book_id: int, text: str):
         summary_text = await llm.summarize(text)
         async with SessionLocal() as db:
             from app.models import BookSummary, Book
-            r = await db.execute(select(BookSummary).where(BookSummary.book_id == book_id))
-            row = r.scalar_one_or_none()
-            if row:
-                row.content = summary_text
+            summary_result = await db.execute(select(BookSummary).where(BookSummary.book_id == book_id))
+            summary_row = summary_result.scalar_one_or_none()
+            if summary_row:
+                summary_row.content = summary_text
             else:
-                row = BookSummary(book_id=book_id, content=summary_text)
-                db.add(row)
-            r3 = await db.execute(select(Book).where(Book.id == book_id))
-            book = r3.scalar_one()
+                summary_row = BookSummary(book_id=book_id, content=summary_text)
+                db.add(summary_row)
+            book_result = await db.execute(select(Book).where(Book.id == book_id))
+            book = book_result.scalar_one()
             book.summary = summary_text
             await db.commit()
 
@@ -101,13 +101,13 @@ def _run_sentiment_task(book_id: int, review_texts: list[str]):
         consensus = await llm.analyze_sentiment(review_texts)
         async with SessionLocal() as db:
             from app.models import ReviewAnalysis
-            r = await db.execute(select(ReviewAnalysis).where(ReviewAnalysis.book_id == book_id))
-            row = r.scalar_one_or_none()
-            if row:
-                row.consensus = consensus
+            analysis_result = await db.execute(select(ReviewAnalysis).where(ReviewAnalysis.book_id == book_id))
+            analysis_row = analysis_result.scalar_one_or_none()
+            if analysis_row:
+                analysis_row.consensus = consensus
             else:
-                row = ReviewAnalysis(book_id=book_id, consensus=consensus)
-                db.add(row)
+                analysis_row = ReviewAnalysis(book_id=book_id, consensus=consensus)
+                db.add(analysis_row)
             await db.commit()
 
     def run():
@@ -164,12 +164,12 @@ async def list_books(
     db: AsyncSession = Depends(get_db),
 ):
     limit = min(max(1, limit), 100)
-    total_r = await db.execute(select(func.count(Book.id)))
-    total = total_r.scalar() or 0
-    r = await db.execute(
+    total_result = await db.execute(select(func.count(Book.id)))
+    total = total_result.scalar() or 0
+    books_result = await db.execute(
         select(Book).offset(skip).limit(limit).order_by(Book.created_at.desc())
     )
-    items = r.scalars().all()
+    items = books_result.scalars().all()
     return BookListResponse(items=items, total=total, skip=skip, limit=limit)
 
 
@@ -179,27 +179,27 @@ async def get_book(
     db: AsyncSession = Depends(get_db),
     user: User | None = Depends(get_optional_user),
 ):
-    r = await db.execute(select(Book).where(Book.id == book_id))
-    book = r.scalar_one_or_none()
+    book_result = await db.execute(select(Book).where(Book.id == book_id))
+    book = book_result.scalar_one_or_none()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
     currently_borrowed_by_me = False
     can_review = False
     my_review = None
     if user:
-        r2 = await db.execute(
+        borrow_result = await db.execute(
             select(Borrow).where(
                 Borrow.book_id == book_id,
                 Borrow.user_id == user.id,
                 Borrow.returned_at.is_(None),
             )
         )
-        currently_borrowed_by_me = r2.scalar_one_or_none() is not None
+        currently_borrowed_by_me = borrow_result.scalar_one_or_none() is not None
         can_review = currently_borrowed_by_me  # true only when currently borrowed (no returned_at)
-        r_review = await db.execute(
+        review_result = await db.execute(
             select(Review).where(Review.book_id == book_id, Review.user_id == user.id).limit(1)
         )
-        review_row = r_review.scalars().first()
+        review_row = review_result.scalars().first()
         if review_row:
             my_review = MyReviewResponse(rating=review_row.rating, text=review_row.text)
     return BookDetailResponse(
@@ -224,8 +224,8 @@ async def get_book_file(
     storage=Depends(get_storage),
 ):
     """Return the uploaded book file (text or PDF) for viewing. Requires auth."""
-    r = await db.execute(select(Book).where(Book.id == book_id))
-    book = r.scalar_one_or_none()
+    book_result = await db.execute(select(Book).where(Book.id == book_id))
+    book = book_result.scalar_one_or_none()
     if not book or not book.file_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book or file not found")
     content = await storage.get(book.file_path)
@@ -244,8 +244,8 @@ async def update_book(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    r = await db.execute(select(Book).where(Book.id == book_id))
-    book = r.scalar_one_or_none()
+    book_result = await db.execute(select(Book).where(Book.id == book_id))
+    book = book_result.scalar_one_or_none()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
     if data.title is not None:
@@ -266,8 +266,8 @@ async def delete_book(
     db: AsyncSession = Depends(get_db),
     storage=Depends(get_storage),
 ):
-    r = await db.execute(select(Book).where(Book.id == book_id))
-    book = r.scalar_one_or_none()
+    book_result = await db.execute(select(Book).where(Book.id == book_id))
+    book = book_result.scalar_one_or_none()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
     if book.file_path:
@@ -283,14 +283,14 @@ async def borrow_book(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    r = await db.execute(select(Book).where(Book.id == book_id))
-    book = r.scalar_one_or_none()
+    book_result = await db.execute(select(Book).where(Book.id == book_id))
+    book = book_result.scalar_one_or_none()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
-    r2 = await db.execute(
+    existing_borrow_result = await db.execute(
         select(Borrow).where(Borrow.book_id == book_id, Borrow.user_id == user.id, Borrow.returned_at.is_(None))
     )
-    if r2.scalar_one_or_none():
+    if existing_borrow_result.scalar_one_or_none():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Already borrowed")
     borrow = Borrow(user_id=user.id, book_id=book_id)
     db.add(borrow)
@@ -305,10 +305,10 @@ async def return_book(
     db: AsyncSession = Depends(get_db),
 ):
     from datetime import datetime
-    r = await db.execute(
+    borrow_result = await db.execute(
         select(Borrow).where(Borrow.book_id == book_id, Borrow.user_id == user.id, Borrow.returned_at.is_(None))
     )
-    borrow = r.scalar_one_or_none()
+    borrow = borrow_result.scalar_one_or_none()
     if not borrow:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active borrow for this book")
     borrow.returned_at = datetime.utcnow()
@@ -324,10 +324,10 @@ async def create_review(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    r = await db.execute(
+    borrow_result = await db.execute(
         select(Borrow).where(Borrow.book_id == book_id, Borrow.user_id == user.id)
     )
-    borrowed = r.scalars().first()
+    borrowed = borrow_result.scalars().first()
     if not borrowed:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Must borrow book before reviewing")
     if data.rating < 1 or data.rating > 5:
