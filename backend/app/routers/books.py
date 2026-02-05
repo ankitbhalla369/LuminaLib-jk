@@ -28,6 +28,15 @@ MAX_PDF_TEXT_LENGTH = 12000
 MAX_TEXT_LENGTH = 8000
 MIN_EXTRACTED_TEXT_LENGTH = 100
 
+# Constants for pagination
+DEFAULT_PAGE_LIMIT = 20
+MIN_PAGE_LIMIT = 1
+MAX_PAGE_LIMIT = 100
+
+# Constants for ratings
+MIN_RATING = 1
+MAX_RATING = 5
+
 
 def _extract_text_for_summary(content: bytes, filename: str | None) -> str | None:
     """Extract plain text from file content for LLM summarization. Returns None if not usable."""
@@ -156,10 +165,10 @@ async def create_book(
 @router.get("", response_model=BookListResponse)
 async def list_books(
     skip: int = 0,
-    limit: int = 20,
+    limit: int = DEFAULT_PAGE_LIMIT,
     db: AsyncSession = Depends(get_db),
 ):
-    limit = min(max(1, limit), 100)
+    limit = min(max(MIN_PAGE_LIMIT, limit), MAX_PAGE_LIMIT)
     total_result = await db.execute(select(func.count(Book.id)))
     total = total_result.scalar() or 0
     books_result = await db.execute(
@@ -326,8 +335,8 @@ async def create_review(
     borrowed = borrow_result.scalars().first()
     if not borrowed:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Must borrow book before reviewing")
-    if data.rating < 1 or data.rating > 5:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Rating must be 1-5")
+    if data.rating < MIN_RATING or data.rating > MAX_RATING:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Rating must be {MIN_RATING}-{MAX_RATING}")
     review = Review(user_id=user.id, book_id=book_id, rating=data.rating, text=data.text)
     db.add(review)
     await db.commit()
