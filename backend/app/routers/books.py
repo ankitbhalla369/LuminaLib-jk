@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from io import BytesIO
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, BackgroundTasks
 from fastapi.responses import FileResponse, Response
@@ -309,7 +310,6 @@ async def return_book(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from datetime import datetime
     borrow_result = await db.execute(
         select(Borrow).where(Borrow.book_id == book_id, Borrow.user_id == user.id, Borrow.returned_at.is_(None))
     )
@@ -342,8 +342,8 @@ async def create_review(
     await db.commit()
     await db.refresh(review)
 
-    r2 = await db.execute(select(Review).where(Review.book_id == book_id))
-    all_reviews = r2.scalars().all()
+    reviews_result = await db.execute(select(Review).where(Review.book_id == book_id))
+    all_reviews = reviews_result.scalars().all()
     texts = [r.text or f"Rating: {r.rating}" for r in all_reviews if r.text or r.rating]
     if texts:
         background_tasks.add_task(_run_sentiment_task, book_id, texts)
@@ -353,10 +353,10 @@ async def create_review(
 
 @router.get("/{book_id}/analysis")
 async def get_analysis(book_id: int, db: AsyncSession = Depends(get_db)):
-    r = await db.execute(select(Book).where(Book.id == book_id))
-    book = r.scalar_one_or_none()
+    book_result = await db.execute(select(Book).where(Book.id == book_id))
+    book = book_result.scalar_one_or_none()
     if not book:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Book not found")
-    r2 = await db.execute(select(ReviewAnalysis).where(ReviewAnalysis.book_id == book_id))
-    ra = r2.scalar_one_or_none()
-    return {"summary": book.summary, "consensus": ra.consensus if ra else None}
+    analysis_result = await db.execute(select(ReviewAnalysis).where(ReviewAnalysis.book_id == book_id))
+    review_analysis = analysis_result.scalar_one_or_none()
+    return {"summary": book.summary, "consensus": review_analysis.consensus if review_analysis else None}
