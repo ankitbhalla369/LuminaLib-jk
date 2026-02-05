@@ -21,10 +21,17 @@ from app.deps import get_current_user, get_optional_user, get_storage, get_llm
 
 router = APIRouter(prefix="/books", tags=["books"])
 
+# Constants for text extraction
+MIN_CONTENT_LENGTH = 50
+MAX_PDF_PAGES = 50
+MAX_PDF_TEXT_LENGTH = 12000
+MAX_TEXT_LENGTH = 8000
+MIN_EXTRACTED_TEXT_LENGTH = 100
+
 
 def _extract_text_for_summary(content: bytes, filename: str | None) -> str | None:
     """Extract plain text from file content for LLM summarization. Returns None if not usable."""
-    if not content or len(content) < 50:
+    if not content or len(content) < MIN_CONTENT_LENGTH:
         return None
     ext = (filename or "").split(".")[-1].lower() if "." in (filename or "") else ""
     if ext == "pdf":
@@ -32,22 +39,22 @@ def _extract_text_for_summary(content: bytes, filename: str | None) -> str | Non
             from pypdf import PdfReader
             reader = PdfReader(BytesIO(content))
             parts = []
-            for page in reader.pages[:50]:  # limit pages
+            for page in reader.pages[:MAX_PDF_PAGES]:
                 t = page.extract_text()
                 if t:
                     parts.append(t)
-            text = "\n".join(parts).strip()[:12000]
-            if not text or text.startswith("%PDF") or len(text) < 100:
+            text = "\n".join(parts).strip()[:MAX_PDF_TEXT_LENGTH]
+            if not text or text.startswith("%PDF") or len(text) < MIN_EXTRACTED_TEXT_LENGTH:
                 return None
             return text
-        except Exception:
+        except Exception:  # PDF parsing can fail for various reasons
             return None
     try:
-        text = content.decode("utf-8", errors="ignore").strip()[:8000]
+        text = content.decode("utf-8", errors="ignore").strip()[:MAX_TEXT_LENGTH]
         if not text or text.startswith("%PDF"):
             return None
         return text
-    except Exception:
+    except Exception:  # Text decoding can fail for binary content
         return None
 
 
