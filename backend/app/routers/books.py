@@ -325,7 +325,7 @@ async def create_review(
     db: AsyncSession = Depends(get_db),
 ):
     borrow_result = await db.execute(
-        select(Borrow).where(Borrow.book_id == book_id, Borrow.user_id == user.id)
+        select(Borrow).where(Borrow.book_id == book_id, Borrow.user_id == user.id) 
     )
     borrowed = borrow_result.scalars().first()
     if not borrowed:
