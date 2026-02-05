@@ -62,12 +62,10 @@ def _run_summary_task(book_id: int, text: str):
     import asyncio
     import threading
     from app.db import SessionLocal
-    from app.config import settings
-    from app.llm.mock import MockLLM
-    from app.llm.ollama import OllamaLLM
+    from app.deps import get_llm
 
     async def _run():
-        llm = OllamaLLM() if settings.llm_provider == "ollama" else MockLLM()
+        llm = get_llm()
         summary_text = await llm.summarize(text)
         async with SessionLocal() as db:
             from app.models import BookSummary, Book
@@ -92,12 +90,10 @@ def _run_sentiment_task(book_id: int, review_texts: list[str]):
     import asyncio
     import threading
     from app.db import SessionLocal
-    from app.config import settings
-    from app.llm.mock import MockLLM
-    from app.llm.ollama import OllamaLLM
+    from app.deps import get_llm
 
     async def _run():
-        llm = OllamaLLM() if settings.llm_provider == "ollama" else MockLLM()
+        llm = get_llm()
         consensus = await llm.analyze_sentiment(review_texts)
         async with SessionLocal() as db:
             from app.models import ReviewAnalysis
