@@ -5,5 +5,6 @@ __pycache__/
 venv/
 backend/uploads/
 frontend/.next/
+frontend/.swc/
 frontend/node_modules/
 backend/alembic/versions/*.pyc
